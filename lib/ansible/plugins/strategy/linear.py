@@ -113,9 +113,9 @@ class StrategyModule(StrategyBase):
                     continue
                 if s.run_state == cur_state and s.cur_block == cur_block:
                     new_t = iterator.get_next_task_for_host(host)
-                    rvals.append((host, t))
+                    rvals.append((host, t, s.run_state))
                 else:
-                    rvals.append((host, noop_task))
+                    rvals.append((host, noop_task, PlayIterator.ITERATING_COMPLETE))
             display.debug("done advancing hosts to next task")
             return rvals
 
@@ -146,7 +146,7 @@ class StrategyModule(StrategyBase):
         # at this point, everything must be ITERATING_COMPLETE, so we
         # return None for all hosts in the list
         display.debug("all hosts are done, so returning None's for all hosts")
-        return [(host, None) for host in hosts]
+        return [(host, None, PlayIterator.ITERATING_COMPLETE) for host in hosts]
 
     def run(self, iterator, play_context):
         '''
@@ -158,6 +158,8 @@ class StrategyModule(StrategyBase):
         # iteratate over each task, while there is one left to run
         result     = True
         work_to_do = True
+        interupt_hosts = False
+
         while work_to_do and not self._tqm._terminated:
 
             try:
@@ -177,7 +179,7 @@ class StrategyModule(StrategyBase):
                 choose_step = True
 
                 results = []
-                for (host, task) in host_tasks:
+                for (host, task, state) in host_tasks:
                     if not task:
                         continue
 
@@ -186,6 +188,11 @@ class StrategyModule(StrategyBase):
 
                     run_once = False
                     work_to_do = True
+
+                    if self._tqm._canceled and not interupt_hosts and state == PlayIterator.ITERATING_TASKS:
+                        iterator.mark_host_failed(host)
+                        interupt_hosts = True
+                        continue
 
                     # test to see if the task across all hosts points to an action plugin which
                     # sets BYPASS_HOST_LOOP to true, or if it has run_once enabled. If so, we

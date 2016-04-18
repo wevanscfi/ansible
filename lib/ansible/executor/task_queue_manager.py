@@ -83,6 +83,9 @@ class TaskQueueManager:
         # a special flag to help us exit cleanly
         self._terminated = False
 
+        # a special flag to allow block to run rescue and always before exiting
+        self._canceled = False
+
         # this dictionary is used to keep track of notified handlers
         self._notified_handlers = dict()
 
@@ -274,6 +277,9 @@ class TaskQueueManager:
 
     def terminate(self):
         self._terminated = True
+
+    def cancel(self):
+        self._canceled = True
 
     def send_callback(self, method_name, *args, **kwargs):
         for callback_plugin in self._callback_plugins:

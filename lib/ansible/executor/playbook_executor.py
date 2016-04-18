@@ -69,7 +69,7 @@ class PlaybookExecutor:
         may limit the runs to serialized groups, etc.
         '''
 
-        signal.signal(signal.SIGINT, self._cleanup)
+        signal.signal(signal.SIGINT, self._cancel)
 
         result = 0
         entrylist = []
@@ -152,6 +152,8 @@ class PlaybookExecutor:
                             # conditions are met, we break out, otherwise we only break out if the entire
                             # batch failed
                             failed_hosts_count = len(self._tqm._failed_hosts) + len(self._tqm._unreachable_hosts)
+                            if self._tqm._canceled:
+                                break
                             if new_play.any_errors_fatal and failed_hosts_count > 0:
                                 break
                             elif new_play.max_fail_percentage is not None and \
@@ -197,6 +199,12 @@ class PlaybookExecutor:
 
     def _cleanup(self, signum=None, framenum=None):
         return self._tqm.cleanup()
+
+    def _cancel(self, signum=None, framenum=None):
+        if self._tqm._canceled:
+            return self._tqm.cleanup()
+        else:
+            return self._tqm.cancel()
 
     def _get_serialized_batches(self, play):
         '''
